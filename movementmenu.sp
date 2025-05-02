@@ -1,11 +1,13 @@
 #include <sourcemod>
 #include <sdkhooks>
+#include <clientprefs>
 
 Handle g_hCookieAA = INVALID_HANDLE;
 Handle g_hCookieBhop = INVALID_HANDLE;
 Handle g_hCookieAuto = INVALID_HANDLE;
 Handle g_hCookieFriction = INVALID_HANDLE;
 Handle g_hCookieAccelerate = INVALID_HANDLE;
+Handle g_hCookieStamina = INVALID_HANDLE;
 
 ConVar sv_airaccelerate = null;
 ConVar sv_enablebunnyhopping = null;
@@ -20,6 +22,7 @@ enum struct Settings
 	bool bAuto;
 	float fFriction;
 	float fAccelerate;
+	bool bStamina;
 }
 
 Settings g_Settings[MAXPLAYERS+1];
@@ -35,13 +38,16 @@ public Plugin myinfo =
 
 public void OnPluginStart()
 {
-	g_hCookieDefaultsSet = RegClientCookie("menu_defaultsset", "reset defaults cookie", CookieAccess_Protected);
 	g_hCookieAA = RegClientCookie("menu_aa", "sv_airaccelerate cookie", CookieAccess_Protected);
 	g_hCookieBhop = RegClientCookie("menu_bhop", "sv_enablebhopping cookie", CookieAccess_Protected);
 	g_hCookieAuto = RegClientCookie("menu_auto", "sv_enableautobunnyhopping cookie", CookieAccess_Protected);
 	g_hCookieFriction = RegClientCookie("menu_friction", "sv_friction cookie", CookieAccess_Protected);
 	g_hCookieAccelerate = RegClientCookie("menu_accelerate", "sv_accelerate cookie", CookieAccess_Protected);
+	g_hCookieStamina = RegClientCookie("menu_stamina", "stamina cookie", CookieAccess_Protected);
 	
+	RegConsoleCmd("sm_menu", Command_Settings, "Choose your movement settings.");
+	RegConsoleCmd("sm_movementmenu", Command_Settings, "Choose your movement settings.");
+	RegConsoleCmd("sm_mm", Command_Settings, "Choose your movement settings.");
 	RegConsoleCmd("sm_style", Command_Settings, "Choose your movement settings.");
 	RegConsoleCmd("sm_styles", Command_Settings, "Choose your movement settings.");
 	RegConsoleCmd("sm_diff", Command_Settings, "Choose your movement settings.");
@@ -83,7 +89,7 @@ public void OnClientCookiesCached(int client)
 	char sCookie[8];
 	
 	GetClientCookie(client, g_hCookieAA, sCookie, 8);
-	gSettings[client].fAA = (strlen(sCookie) > 0)? view_as<float>(StringToFloat(sCookie)):10.0;
+	g_Settings[client].fAA = (strlen(sCookie) > 0)? view_as<float>(StringToFloat(sCookie)):10.0;
 	
 	GetClientCookie(client, g_hCookieBhop, sCookie, 8);
 	g_Settings[client].bBhop = (strlen(sCookie) > 0)? view_as<bool>(StringToInt(sCookie)):false;
@@ -92,10 +98,13 @@ public void OnClientCookiesCached(int client)
 	g_Settings[client].bAuto = (strlen(sCookie) > 0)? view_as<bool>(StringToInt(sCookie)):false;
 	
 	GetClientCookie(client, g_hCookieFriction, sCookie, 8);
-	gSettings[client].fFriction = (strlen(sCookie) > 0)? view_as<float>(StringToFloat(sCookie)):4.0;
+	g_Settings[client].fFriction = (strlen(sCookie) > 0)? view_as<float>(StringToFloat(sCookie)):4.0;
 	
 	GetClientCookie(client, g_hCookieAccelerate, sCookie, 8);
-	gSettings[client].fAccelerate = (strlen(sCookie) > 0)? view_as<float>(StringToFloat(sCookie)):5.0;
+	g_Settings[client].fAccelerate = (strlen(sCookie) > 0)? view_as<float>(StringToFloat(sCookie)):5.0;
+	
+	GetClientCookie(client, g_hCookieStamina, sCookie, 8);
+	g_Settings[client].bStamina = (strlen(sCookie) > 0)? view_as<bool>(StringToInt(sCookie)):true;
 	
 	UpdateSettings(client);
 }
@@ -130,6 +139,8 @@ public void PreThinkPost(int client)
 		sv_autobunnyhopping.BoolValue = g_Settings[client].bAuto;
 		sv_friction.FloatValue = g_Settings[client].fFriction;
 		sv_accelerate.FloatValue = g_Settings[client].fAccelerate;
+		if(!g_Settings[client].bStamina)
+			SetEntPropFloat(client, Prop_Send, "m_flStamina", 0.0);
 	}
 }
 
@@ -151,20 +162,23 @@ public Action ShowSettingsMenu(int client)
 	
 	SetMenuTitle(hMenu, "Movement Settings");
 	
-	Format(buf, sizeof(buf), "sv_airaccelerate %.0f", g_PlayerStates[client].fAA);
+	Format(buf, sizeof(buf), "sv_airaccelerate %.0f", g_Settings[client].fAA);
 	AddMenuItem(hMenu, "aa", buf);
 	
-	Format(buf, sizeof(buf), "sv_enablebunnyhopping %s", g_PlayerStates[client].bBhop?"1":"0");
+	Format(buf, sizeof(buf), "sv_enablebunnyhopping %s", g_Settings[client].bBhop?"1":"0");
 	AddMenuItem(hMenu, "bhop", buf);
 	
-	Format(buf, sizeof(buf), "sv_autobunnyhopping %s", g_PlayerStates[client].bAuto?"1":"0");
+	Format(buf, sizeof(buf), "sv_autobunnyhopping %s", g_Settings[client].bAuto?"1":"0");
 	AddMenuItem(hMenu, "auto", buf);
 	
-	Format(buf, sizeof(buf), "sv_friction %.0f", g_PlayerStates[client].fFriction);
+	Format(buf, sizeof(buf), "sv_friction %.0f", g_Settings[client].fFriction);
 	AddMenuItem(hMenu, "friction", buf);
 	
-	Format(buf, sizeof(buf), "sv_accelerate %.0f \n ", g_PlayerStates[client].fAccelerate);
+	Format(buf, sizeof(buf), "sv_accelerate %.0f ", g_Settings[client].fAccelerate);
 	AddMenuItem(hMenu, "accelerate", buf);
+	
+	Format(buf, sizeof(buf), "Stamina: %s \n ", g_Settings[client].bStamina?"On":"Off");
+	AddMenuItem(hMenu, "stamina", buf);
 	
 	Format(buf, sizeof(buf), "Reset Defaults");
 	AddMenuItem(hMenu, "reset", buf);
@@ -199,7 +213,7 @@ public int SettingsMenuHandler(Handle hMenu, MenuAction ma, int client, int nIte
 					default:
 						g_Settings[client].fAA = 10.0;
 				}
-				SetCookie(client, g_hCookieAA, g_Settings[client].fAA);
+				SetFloatCookie(client, g_hCookieAA, g_Settings[client].fAA);
 			}
 			else if(!strcmp(strInfo, "bhop"))
 			{
@@ -221,7 +235,7 @@ public int SettingsMenuHandler(Handle hMenu, MenuAction ma, int client, int nIte
 				{
 					g_Settings[client].fFriction = 1.0;
 				}
-				SetCookie(client, g_hCookieFriction, g_Settings[client].fFriction);
+				SetFloatCookie(client, g_hCookieFriction, g_Settings[client].fFriction);
 			}
 			else if(!strcmp(strInfo, "accelerate"))
 			{
@@ -233,7 +247,12 @@ public int SettingsMenuHandler(Handle hMenu, MenuAction ma, int client, int nIte
 				{
 					g_Settings[client].fAccelerate = 1.0;
 				}
-				SetCookie(client, g_hCookieAccelerate, g_Settings[client].fAccelerate);
+				SetFloatCookie(client, g_hCookieAccelerate, g_Settings[client].fAccelerate);
+			}
+			else if(!strcmp(strInfo, "stamina"))
+			{
+				g_Settings[client].bStamina = !g_Settings[client].bStamina;
+				SetCookie(client, g_hCookieStamina, g_Settings[client].bStamina);
 			}
 			else if(!strcmp(strInfo, "reset"))
 			{
@@ -247,9 +266,11 @@ public int SettingsMenuHandler(Handle hMenu, MenuAction ma, int client, int nIte
 				SetFloatCookie(client, g_hCookieFriction, g_Settings[client].fFriction);
 				g_Settings[client].fAccelerate = 5.0;
 				SetFloatCookie(client, g_hCookieAccelerate, g_Settings[client].fAccelerate);
+				g_Settings[client].bStamina = true;
+				SetCookie(client, g_hCookieStamina, g_Settings[client].bStamina);
 			}
 			UpdateSettings(client);
-			ShowSettingsPanel(client);
+			ShowSettingsMenu(client);
 		}
 	}
 	return Plugin_Handled;
