@@ -8,5 +8,6 @@
 - sv_autobunnyhopping (0/1)
 - sv_friction (1-10)
 - sv_accelerate (1-10)
+- Stamina (On/Off)
 
 ### Made and tested for cs:s, no other games are directly supported, but may work
