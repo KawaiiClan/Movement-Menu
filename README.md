@@ -4,11 +4,11 @@
 
 ## Add a menu that allows players to change movement parameters for themselves
 ### Current sm_menu options are:
-- sv_airaccelerate (10/100/1000)
-- sv_enablebunnyhopping (0/1)
-- sv_autobunnyhopping (0/1)
-- sv_friction (1-10)
-- sv_accelerate (1-10)
-- Stamina (On/Off)
+- sv_airaccelerate `10 / 100 / 1000` (Default: 10)
+- sv_enablebunnyhopping `0 / 1` (Default: 0)
+- sv_autobunnyhopping `0 / 1` (Default: 0)
+- sv_friction `1 - 10` (Default: 4)
+- sv_accelerate `1 - 10` (Default: 5)
+- Stamina `On / Off` (Default: 1)
 
 ### Made and tested for cs:s, no other games are directly supported, but may work
