@@ -77,11 +77,16 @@ public void OnPluginStart()
 	
 	sv_friction = FindConVar("sv_friction");
 	sv_friction.Flags &= ~(FCVAR_NOTIFY | FCVAR_REPLICATED);
+	
+	for(int i = 1; i <= MaxClients; i++)
+	{
+		OnClientCookiesCached(i);
+	}
 }
 
 public void OnClientCookiesCached(int client)
 {
-	if(IsFakeClient(client) || !IsClientInGame(client))
+	if(!IsValidClient(client) || IsFakeClient(client))
 	{
 		return;
 	}
